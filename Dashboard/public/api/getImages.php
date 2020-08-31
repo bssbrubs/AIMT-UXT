@@ -7,7 +7,7 @@ $images = array_diff(scandir($real_url), array('.', '..'));
 $images_array = [];
 
 for ($i=2; $i < count($images) ; $i++) { 
-    $image = (object) ['image' => $images[$i], 'path' => $local_url.'\\'.$images[$i]];
+    $image = (object) ['image' => $images[$i], 'path' => $local_url.'/'.$images[$i]];
     array_push($images_array, $image);
 }
 

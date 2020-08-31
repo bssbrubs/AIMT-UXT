@@ -25,11 +25,9 @@
     position: absolute;">
     <ul id="v-for-object" class="demo">
     <li v-for="item in selected_img" :key="item">
-      {{item}}
-      <img class='ibagem'
-        :src="item.image"
-      :style="{'top':item.scroll}"
-      />
+      <v-row v-bind:style="{ 'margin-top': item.scroll + 'px', 'z-index': globalIndex - 1 }">>
+          <img class='ibagem' :src="item.image" />
+      </v-row>
     </li>
     </ul>
       <canvas
@@ -61,6 +59,7 @@ export default {
       data: []
     },
     ctx: 0,
+    globalIndex: 1000000000000000,
     samples_url: [],
     sample_selected: '',
     selected_path: [],
@@ -87,27 +86,6 @@ export default {
       fetchSampleData: 'samples/fetchSpecificSample',
       fetchImages: 'samples/fetchImages'
     }),
-    drawSimpleheat (data) {
-      this.canvas = document.getElementById('plotter')
-      const heat = simpleheat(this.canvas).data(data)
-      // var ctx = this.canvas.getContext('2d')
-      this.heatmap.width = this.canvas.width
-      this.heatmap.height = this.canvas.height
-
-      // var background = new Image()
-      // background.src = this.image_in_view.path + '?' + new Date().getTime()
-      // background.setAttribute('crossOrigin', '')
-
-      // // Make sure the image is loaded first otherwise nothing will draw.
-      // background.onload = function () {
-      //   ctx.drawImage(background, 0, 0)
-      // }
-
-      heat.max(this.heatmap.max)
-      heat.data(data)
-      heat.draw()
-      heat.radius(10, 30)
-    },
     changeSelectedSample () {
       this.samples.forEach(sample => {
         if (this.sample_selected === sample.sample_name) {
@@ -133,40 +111,44 @@ export default {
     findImageData () {
       var data = []
       var lastRes = 0
+      var lastScroll = 0
       var imagesByTime = []
       this.selectedTrace.forEach(trace => {
-        if (trace.time > lastRes) {
-          lastRes = trace.time
-          var byby = []
-          this.selectedTrace.forEach(trace => {
-            if (trace.time === lastRes) {
-              byby.push(trace)
-            }
-          })
-          imagesByTime.push(byby)
+        if (trace.time >= lastRes) {
+          if (trace.scroll > lastScroll) {
+            if (lastRes + 2 >= Math.floor(trace.time) + 2) { lastRes = Math.floor(trace.time) + 2 }
+            imagesByTime.push(trace)
+          }
+          lastScroll = 0
         }
       })
       imagesByTime.splice(0, 1)
-
+      console.log(imagesByTime)
+      var aux = -1
+      var lastImage = ''
       for (let index = 0; index < imagesByTime.length; index++) {
-        var meperdoe = []
-        var domau = 0
+        var array = []
         imagesByTime[index].forEach(time => {
-          if (time.scroll >= domau) {
+          if (time.scroll > aux) {
             var background = new Image()
             background.src = this.image_in_view.path + '?' + new Date().getTime()
-            domau = time.scroll + background.height * 0.3
+            aux = time.scroll
             var scroll = time.scroll
             var image = this.findImageURL(time.image)
-            meperdoe.push({ image, scroll })
+            if (lastImage !== image) {
+              lastImage = image
+              array.push({ image, scroll })
+            }
           }
         })
-        if (domau > 0) { this.images_scroll.push(meperdoe) }
+        this.images_scroll.push(array)
       }
+
+      console.log(this.images_scroll)
 
       this.selected_img = this.images_scroll[1]
 
-      console.log(this.images_scroll)
+      // console.log(this.images_scroll)
 
       // this.selectedTrace.forEach(trace => {
       //   if (this.image_in_view.image === trace.image) {
@@ -185,6 +167,27 @@ export default {
       // this.takeBack()
       // this.foundScrollImages(this.selectedTrace)
       this.drawSimpleheat(data)
+    },
+    drawSimpleheat (data) {
+      this.canvas = document.getElementById('plotter')
+      const heat = simpleheat(this.canvas).data(data)
+      // var ctx = this.canvas.getContext('2d')
+      this.heatmap.width = this.canvas.width
+      this.heatmap.height = this.canvas.height
+
+      // var background = new Image()
+      // background.src = this.image_in_view.path + '?' + new Date().getTime()
+      // background.setAttribute('crossOrigin', '')
+
+      // // Make sure the image is loaded first otherwise nothing will draw.
+      // background.onload = function () {
+      //   ctx.drawImage(background, 0, 0)
+      // }
+
+      heat.max(this.heatmap.max)
+      heat.data(data)
+      heat.draw()
+      heat.radius(10, 30)
     },
     findImageURL (image) {
       var obj = ''
