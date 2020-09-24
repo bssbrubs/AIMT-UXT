@@ -23,26 +23,14 @@
     </v-btn>
     <div id="container" style="width: 1366px; height: 2596px;
     position: absolute;">
-    <ul id="v-for-object" class="demo">
-    <li v-for="item in selected_img" :key="item">
-      <v-row v-bind:style="{ 'margin-top': item.scroll + 'px', 'z-index': globalIndex - 1 }">>
-          <img class='ibagem' :src="item.image" />
-      </v-row>
-    </li>
-    </ul>
-      <canvas
-        width="1366"
-        height="2596"
-        style="width: 1366px; height: 2596px; position: absolute; opacity: 75%;"
-        id="plotter"
-      ></canvas>
+    <img class='img' />
     </div>
   </div>
 </template>
 
 <script>
 import simpleheat from 'simpleheat'
-
+import mergeImages from 'merge-images'
 import { mapGetters, mapActions } from 'vuex'
 
 export default {
@@ -108,65 +96,57 @@ export default {
         this.findImageData()
       })
     },
+    groupBy2 (arr, property) {
+      return arr.reduce(function (memo, x) {
+        if (!memo[x[property]]) { memo[x[property]] = [] }
+        memo[x[property]].push(x)
+        return memo
+      }, {})
+    },
     findImageData () {
-      var data = []
-      var lastRes = 0
+      // var data = []
+      // var lastRes = 0
       var lastScroll = 0
       var imagesByTime = []
-      this.selectedTrace.forEach(trace => {
-        if (trace.time >= lastRes) {
-          if (trace.scroll > lastScroll) {
-            if (lastRes + 2 >= Math.floor(trace.time) + 2) { lastRes = Math.floor(trace.time) + 2 }
-            imagesByTime.push(trace)
-          }
-          lastScroll = 0
-        }
-      })
-      imagesByTime.splice(0, 1)
-      console.log(imagesByTime)
-      var aux = -1
-      var lastImage = ''
-      for (let index = 0; index < imagesByTime.length; index++) {
+      this.selectedTrace.sort((a, b) => (a.time > b.time) ? 1 : ((b.time > a.time) ? -1 : 0))
+      this.selectedTrace.forEach(trace => { trace.time = Math.floor(trace.time) })
+      var separateTime = this.groupBy2(this.selectedTrace, 'time')
+      separateTime = Object.entries(separateTime)
+      separateTime.forEach(time => {
         var array = []
-        imagesByTime[index].forEach(time => {
-          if (time.scroll > aux) {
-            var background = new Image()
-            background.src = this.image_in_view.path + '?' + new Date().getTime()
-            aux = time.scroll
-            var scroll = time.scroll
-            var image = this.findImageURL(time.image)
-            if (lastImage !== image) {
-              lastImage = image
-              array.push({ image, scroll })
+        time[1].sort((a, b) => (a.scroll > b.scroll) ? 1 : ((b.scroll > a.scroll) ? -1 : 0))
+        time[1].forEach(times => {
+          var image = this.findImageURL(times.image)
+          if (image !== '') {
+            if (array.length === 0) {
+              array.push({ src: image, x: 0, y: lastScroll })
+            }
+            if ((times.scroll - lastScroll) >= 600) {
+              console.log(times.scroll)
+              lastScroll = times.scroll
+              array.push({ src: image, x: 0, y: lastScroll })
             }
           }
         })
-        this.images_scroll.push(array)
-      }
-
-      console.log(this.images_scroll)
-
-      this.selected_img = this.images_scroll[1]
-
-      // console.log(this.images_scroll)
-
-      // this.selectedTrace.forEach(trace => {
-      //   if (this.image_in_view.image === trace.image) {
-      //     data.push([trace.X, trace.Y])
-      //     if (trace.scroll >= lastRes) {
-      //       var background = new Image()
-      //       background.src = this.image_in_view.path + '?' + new Date().getTime()
-      //       lastRes = trace.scroll + background.height * 0.3
-      //       var scroll = trace.scroll
-      //       var image = trace.image
-      //       this.images_scroll.push({ image, scroll })
-      //     }
-      //   }
-      // })
-      // console.log(this.images_scroll)
-      // this.takeBack()
-      // this.foundScrollImages(this.selectedTrace)
-      this.drawSimpleheat(data)
+        time[1].forEach(times => {
+          var image = this.findImageURL(times.image)
+          if (image !== '') {
+            if (times.scroll >= lastScroll) {
+              console.log(times.scroll)
+              lastScroll = times.scroll
+              array.push({ src: image, x: 0, y: lastScroll })
+            }
+          }
+        })
+        console.log(array)
+        imagesByTime.push(array)
+        lastScroll = 0
+      })
+      this.images_scroll = imagesByTime
+      this.selected_img = imagesByTime[0]
+      mergeImages(imagesByTime[0], { crossOrigin: 'Anonymous', height: 2613 })
+        .then(b64 => { document.querySelector('img').src = b64 })
+      // this.drawSimpleheat(data)
     },
     drawSimpleheat (data) {
       this.canvas = document.getElementById('plotter')
@@ -231,8 +211,9 @@ export default {
 }
 
 .ibagem {
-  width: 100%; position: absolute;
-      left:0px;
+  width: 100%;
+  position: absolute;
+  left:0px;
 }
 
 /* body{text-align: center;background: #f2f6f8;}
