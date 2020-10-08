@@ -1,7 +1,7 @@
 <template>
   <div>
     <br />
-    <v-row>
+    <v-row justify="center">
       <v-col class="d-flex" cols="12" sm="6">
         <v-select
           v-model="sample_selected"
@@ -15,15 +15,21 @@
         ></v-select>
       </v-col>
     </v-row>
-    <v-btn color="green" fab large dark bottom left class="v-btn--example" @click="previousImage()">
+    <v-row justify="center">
+    <v-btn style="margin-left: 90px" color="green" fab large dark bottom left class="v-btn--example" @click="previousImage()">
       <v-icon>mdi-chevron-double-left</v-icon>
     </v-btn>
-    <v-btn color="green" fab large dark bottom left class="v-btn--example2" @click="nextImage()">
+    <v-spacer></v-spacer>
+    <v-btn style="margin-right: 90px"  color="green" fab large dark bottom left class="v-btn--example2" @click="nextImage()">
       <v-icon>mdi-chevron-double-right</v-icon>
     </v-btn>
+    </v-row>
+    <div style="margin-top: 30px">
     <div id="container" style="width: 1366px; height: 2596px;
     position: absolute;">
+    <canvas id='plotter' style="position: absolute; opacity: 75%;"> </canvas>
     <img class='img' />
+    </div>
     </div>
   </div>
 </template>
@@ -39,13 +45,6 @@ export default {
     msg: String
   },
   data: () => ({
-    heatmap: {
-      max: 1,
-      canvas: '',
-      width: 0,
-      height: 0,
-      data: []
-    },
     ctx: 0,
     globalIndex: 1000000000000000,
     samples_url: [],
@@ -55,7 +54,8 @@ export default {
     image_pos: 0,
     selectedObj: [],
     images_scroll: [],
-    selected_img: []
+    selected_img: [],
+    heat: ''
   }),
   components: {},
   computed: {
@@ -83,8 +83,13 @@ export default {
           this.selected_path = ({ localPath, realPath })
         }
       })
-      this.findImages()
-      this.findTraceData()
+      this.fetchImages(this.selected_path).then(response => {
+        this.image_in_view = this.images[2]
+        this.fetchSampleData(this.selectedObj.real_path).then(response => {
+          this.findImageData()
+        })
+      })
+      // this.findTraceData()
     },
     findImages () {
       this.fetchImages(this.selected_path).then(response => {
@@ -104,8 +109,7 @@ export default {
       }, {})
     },
     findImageData () {
-      // var data = []
-      // var lastRes = 0
+      var data = []
       var lastScroll = 0
       var imagesByTime = []
       this.selectedTrace.sort((a, b) => (a.time > b.time) ? 1 : ((b.time > a.time) ? -1 : 0))
@@ -116,13 +120,16 @@ export default {
         var array = []
         time[1].sort((a, b) => (a.scroll > b.scroll) ? 1 : ((b.scroll > a.scroll) ? -1 : 0))
         time[1].forEach(times => {
+          var xdata = times.X
+          var ydata = times.Y
+          var zdata = 1
+          data.push([xdata, ydata, zdata])
           var image = this.findImageURL(times.image)
           if (image !== '') {
             if (array.length === 0) {
               array.push({ src: image, x: 0, y: lastScroll })
             }
             if ((times.scroll - lastScroll) >= 600) {
-              console.log(times.scroll)
               lastScroll = times.scroll
               array.push({ src: image, x: 0, y: lastScroll })
             }
@@ -132,13 +139,11 @@ export default {
           var image = this.findImageURL(times.image)
           if (image !== '') {
             if (times.scroll >= lastScroll) {
-              console.log(times.scroll)
               lastScroll = times.scroll
               array.push({ src: image, x: 0, y: lastScroll })
             }
           }
         })
-        console.log(array)
         imagesByTime.push(array)
         lastScroll = 0
       })
@@ -146,27 +151,21 @@ export default {
       this.selected_img = imagesByTime[0]
       mergeImages(imagesByTime[0], { crossOrigin: 'Anonymous', height: 2613 })
         .then(b64 => { document.querySelector('img').src = b64 })
-      // this.drawSimpleheat(data)
+      this.drawSimpleheat(data)
     },
     drawSimpleheat (data) {
-      this.canvas = document.getElementById('plotter')
-      const heat = simpleheat(this.canvas).data(data)
-      // var ctx = this.canvas.getContext('2d')
-      this.heatmap.width = this.canvas.width
-      this.heatmap.height = this.canvas.height
-
-      // var background = new Image()
-      // background.src = this.image_in_view.path + '?' + new Date().getTime()
-      // background.setAttribute('crossOrigin', '')
-
-      // // Make sure the image is loaded first otherwise nothing will draw.
-      // background.onload = function () {
-      //   ctx.drawImage(background, 0, 0)
-      // }
-
-      heat.max(this.heatmap.max)
+      var canvas = document.getElementById('plotter')
+      var heat = simpleheat(canvas).data(data)
+      var ctx = canvas.getContext('2d')
+      canvas.height = 2613
+      canvas.width = 9000
+      ctx.clearRect(0, 0, 9000, 2613)
+      // ctx.drawImage(background, 0, 0)
+      // var img = document.getElementsByTagName('img')[0]
+      // img.src = ctx.toDataURL()
+      heat.max(1)
       heat.data(data)
-      heat.draw()
+      heat.draw(0.05)
       heat.radius(10, 30)
     },
     findImageURL (image) {
