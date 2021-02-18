@@ -16,13 +16,6 @@
       </v-col>
     </v-row>
     <v-row justify="center">
-    <v-btn style="margin-left: 90px" color="green" fab large dark bottom left class="v-btn--example" @click="previousImage()">
-      <v-icon>mdi-chevron-double-left</v-icon>
-    </v-btn>
-    <v-spacer></v-spacer>
-    <v-btn style="margin-right: 90px"  color="green" fab large dark bottom left class="v-btn--example2" @click="nextImage()">
-      <v-icon>mdi-chevron-double-right</v-icon>
-    </v-btn>
     </v-row>
     <div style="margin-top: 30px">
     <div id="container" style="width: 1366px; height: 2596px;
@@ -83,13 +76,16 @@ export default {
           this.selected_path = ({ localPath, realPath })
         }
       })
+      this.interval = setInterval(() => this.findImagesInRealData(), 5000)
+      // this.findTraceData()
+    },
+    findImagesInRealData () {
       this.fetchImages(this.selected_path).then(response => {
         this.image_in_view = this.images[2]
         this.fetchSampleData(this.selectedObj.real_path).then(response => {
           this.findImageData()
         })
       })
-      // this.findTraceData()
     },
     findImages () {
       this.fetchImages(this.selected_path).then(response => {
@@ -112,38 +108,26 @@ export default {
       var data = []
       var lastScroll = 0
       var imagesByTime = []
+      var array = []
       this.selectedTrace.sort((a, b) => (a.time > b.time) ? 1 : ((b.time > a.time) ? -1 : 0))
-      this.selectedTrace.forEach(trace => { trace.time = Math.floor(trace.time) })
-      var separateTime = this.groupBy2(this.selectedTrace, 'time')
-      separateTime = Object.entries(separateTime)
-      separateTime.forEach(time => {
-        var array = []
-        time[1].sort((a, b) => (a.scroll > b.scroll) ? 1 : ((b.scroll > a.scroll) ? -1 : 0))
-        time[1].forEach(times => {
-          var xdata = times.X
-          var ydata = times.Y
-          var zdata = 1
-          data.push([xdata, ydata, zdata])
-          var image = this.findImageURL(times.image)
-          if (image !== '') {
-            if (array.length === 0) {
-              array.push({ src: image, x: 0, y: lastScroll })
-            }
-            if ((times.scroll - lastScroll) >= 600) {
-              lastScroll = times.scroll
-              array.push({ src: image, x: 0, y: lastScroll })
-            }
+      var traceInAnalysis = this.selectedTrace[this.selectedTrace.length - 1]
+      traceInAnalysis.forEach(time => {
+        var image = this.findImageURL(time.image)
+        var xdata = time.X
+        var ydata = time.Y
+        var zdata = 1
+        data.push([xdata, ydata, zdata])
+        if (image !== '') {
+          if (array.length === 0) {
+            array.push({ src: image, x: 0, y: lastScroll })
           }
-        })
-        time[1].forEach(times => {
-          var image = this.findImageURL(times.image)
-          if (image !== '') {
-            if (times.scroll >= lastScroll) {
-              lastScroll = times.scroll
-              array.push({ src: image, x: 0, y: lastScroll })
-            }
+          if ((time.scroll - lastScroll) >= 600) {
+            lastScroll = time.scroll
+            array.push({ src: image, x: 0, y: lastScroll })
           }
-        })
+          // array.push({ src: image, x: 0, y: lastScroll })
+        }
+        // console.log(lastScroll)
         imagesByTime.push(array)
         lastScroll = 0
       })
@@ -163,6 +147,7 @@ export default {
       // ctx.drawImage(background, 0, 0)
       // var img = document.getElementsByTagName('img')[0]
       // img.src = ctx.toDataURL()
+      heat.clear()
       heat.max(1)
       heat.data(data)
       heat.draw(0.05)
@@ -176,20 +161,6 @@ export default {
         }
       })
       return obj
-    },
-    previousImage () {
-      if (this.image_pos >= 1) {
-        this.image_pos -= 1
-        this.image_in_view = this.images[this.image_pos]
-        this.selected_img = this.images_scroll[this.image_pos]
-        // this.findImageData()
-      }
-    },
-    nextImage () {
-      this.image_pos += 1
-      this.image_in_view = this.images[this.image_pos]
-      this.selected_img = this.images_scroll[this.image_pos]
-      // this.findImageData()
     }
   }
 }
